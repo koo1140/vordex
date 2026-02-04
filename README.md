@@ -13,8 +13,6 @@ Web fetch
     <td align="center">
       <img width="100%" alt="Preview 1" src="https://github.com/user-attachments/assets/386936f6-7f59-42ac-b131-6a63e5bf8160" />
     </td>
-  </tr>
-  <tr>
     <td align="center">
       <img width="100%" alt="Preview 2" src="https://github.com/user-attachments/assets/d5ebb868-3168-4f99-9b46-5f34fa12dade" />
     </td>
@@ -23,3 +21,4 @@ Web fetch
     </td>
   </tr>
 </table>
+
