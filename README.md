@@ -1,10 +1,10 @@
 # vordex
-AI assistant
-Image support
-Image generation
-Custoom tools
-Web search
-Web fetch
+-AI assistant chat interface
+-Image support
+-Image generation
+-Custoom tools
+-Web search
+-Web fetch
 
 ## 🖼️ Preview
 
