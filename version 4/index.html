@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Vordex AI</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <style>
+/* --- CORE THEME --- */
+:root {
+  --ash-bg: #1a1a1a; --ash-surface: #252525; --ash-border: #3a3a3a; --text-orange: #eb801d;
+  --text-main: #e6e6e6; --text-muted: #9e9e9e; --user-bubble: #333333;
+  --bot-bubble: #2a2a2a; --accent-primary: #5865F2;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-family); background-color: var(--ash-bg); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* --- HEADER --- */
+.header-actions { position: fixed; top: 20px; right: 20px; display: flex; gap: 12px; z-index: 200; }
+.updates-trigger { background: var(--ash-surface); border: 1px solid var(--ash-border); color: var(--text-main); padding: 8px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: 0.2s; }
+.update-dot { width: 8px; height: 8px; background: var(--accent-primary); border-radius: 50%; box-shadow: 0 0 10px var(--accent-primary); }
+.clear-chat-btn { width: 36px; height: 36px; background: rgba(40,40,40,0.5); border: 1px solid var(--ash-border); border-radius: 50%; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* --- CHAT AREA --- */
+#chat-window { flex: 1; max-width: 900px; margin: 0 auto; width: 100%; padding: 80px 20px 140px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; scrollbar-width: none; }
+#chat-window::-webkit-scrollbar { display: none; }
+.message-wrapper { display: flex; flex-direction: column; max-width: 85%; animation: slideUp 0.3s ease-out forwards; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+.message-wrapper.user { align-self: flex-end; }
+.message-wrapper.bot { align-self: flex-start; }
+
+.message-content {
+  padding: 12px 18px;
+  border-radius: 18px;
+  line-height: 1.6;
+  font-size: 1rem;
+  word-wrap: break-word;
+}
+.user .message-content { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 4px; }
+.bot .message-content { background: var(--bot-bubble); border: 1px solid var(--ash-border); border-bottom-left-radius: 4px; }
+
+/* Hover effects only on desktop */
+@media (hover: hover) and (pointer: fine) {
+  .msg-footer:hover { opacity: 1; }
+  .action-btn:hover { color: var(--text-main); }
+  a:hover { border-bottom-color: #6e7cff; }
+  .copy-code-btn:hover { border-color: #666; color: white; }
+}
+
+.msg-footer { display: flex; gap: 10px; margin-top: 6px; padding: 0 4px; opacity: 0.7; transition: opacity 0.2s; }
+.action-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center; }
+
+/* --- DETAILS PANEL --- */
+.details-panel { margin-top: 10px; background: rgba(30,30,30,0.4); border: 1px solid var(--ash-border); border-radius: 12px; padding: 12px; font-size: 0.8rem; display: none; grid-template-columns: auto 1fr; gap: 8px 16px; }
+.details-panel.show { display: grid; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* --- INPUT AREA --- */
+.input-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--ash-surface); border: 1px solid var(--ash-border); display: flex; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 100; width: 90%; max-width: 800px; border-radius: 30px; padding: 0 8px 0 24px; transition: transform 0.2s; height: auto; }
+#user-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 1rem;
+    outline: none;
+    resize: none;
+    line-height: 1.4;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 12px 0;
+}
+#user-input:disabled { opacity: 0.5; cursor: not-allowed; }
+#send-btn { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--accent-primary); color: white; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+#send-btn:disabled { background: #444; }
+#upload-btn { width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(100,100,100,0.5); color: var(--text-main); cursor: pointer; display: flex; justify-content: center; align-items: center; margin-right: 8px; }
+
+/* --- UPDATES SIDEBAR --- */
+.updates-panel { position: fixed; top: 0; right: -420px; width: 400px; height: 100vh; background: #121212; border-left: 1px solid var(--ash-border); z-index: 1000; transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1); padding: 40px 30px; }
+.updates-panel.open { transform: translateX(-420px); }
+.panel-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: none; z-index: 999; }
+.panel-overlay.show { display: block; }
+
+/* --- EDIT MODE STYLES --- */
+.edit-container { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 200px; }
+.edit-input { background: rgba(0,0,0,0.2); border: 1px solid var(--ash-border); color: white; padding: 8px; border-radius: 6px; font-family: inherit; font-size: 1rem; width: 100%; outline: none; }
+.edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.save-btn { background: var(--accent-primary); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.cancel-btn { background: transparent; border: 1px solid var(--ash-border); color: #aaa; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+
+/* --- MARKDOWN ELEMENTS STYLING --- */
+/* 1. Rounded Tables */
+table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 15px 0; border: 1px solid var(--ash-border); border-radius: 12px; overflow: hidden; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--ash-border); border-right: 1px solid var(--ash-border); }
+th { background: #2a2a2a; font-weight: 600; color: #fff; }
+th:last-child, td:last-child { border-right: none; }
+tr:last-child td { border-bottom: none; }
+/* 2. Lists */
+ul, ol { margin: 8px 0 8px 24px; }
+li { margin-bottom: 4px; padding-left: 4px; }
+/* 3. Inline formatting */
+strong { font-weight: 700; color: #fff; }
+em { font-style: italic; color: #ccc; }
+del { text-decoration: line-through; opacity: 0.7; }
+/* 4. Links */
+a { color: #6e7cff; text-decoration: none; border-bottom: 1px dotted transparent; transition: 0.2s; }
+/* 5. Images */
+.message-content img { max-width: 100%; border-radius: 12px; margin: 10px 0; border: 1px solid var(--ash-border); }
+/* 6. Inline Code */
+:not(pre) > code { background: rgba(0, 0, 0, 0.3); color: #ff9f43; font-family: 'Menlo', 'Consolas', monospace; padding: 2px 6px; border-radius: 6px; font-size: 0.9em; border: 1px solid rgba(255,255,255,0.05); }
+/* 7. Code Blocks */
+.code-block-wrapper { background: #111; border-radius: 10px; margin: 15px 0; border: 1px solid #222; overflow: hidden; }
+.code-header { display: flex; justify-content: space-between; padding: 8px 16px; background: #1a1a1a; border-bottom: 1px solid #222; font-size: 0.75rem; color: #888; }
+.code-actions { display: flex; gap: 8px; }
+.copy-code-btn { background: transparent; border: 1px solid #333; color: #aaa; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+.preview-code-btn { background: transparent; border: 1px solid #333; color: #aaa; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+pre[class*="language-"] { margin: 0 !important; padding: 16px !important; background: transparent !important; }
+/* 8. Blockquotes */
+blockquote { border-left: 4px solid var(--accent-primary); margin: 15px 0; padding: 8px 16px; background: rgba(88, 101, 242, 0.1); border-radius: 0 8px 8px 0; color: #ccc; font-style: italic; }
+/* Headers */
+h1, h2, h3, h4 { margin: 15px 0 10px 0; color: #fff; font-weight: 700; line-height: 1.3; }
+h1 { font-size: 1.6rem; border-bottom: 1px solid var(--ash-border); padding-bottom: 5px; }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.2rem; color: var(--accent-primary); }
+h4 { font-size: 1.1rem; color: var(--text-orange); }
+/* Nested Blockquotes */
+blockquote blockquote { margin-left: 10px; margin-top: 5px; background: rgba(255, 255, 255, 0.03); }
+
+.typing-cursor { color: var(--accent-primary); animation: blink 0.8s infinite; margin-left: 4px; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* --- CARDS --- */
+.card { background: var(--ash-surface); border: 1px solid var(--ash-border); border-radius: 12px; padding: 16px; margin: 15px 0; display: flex; flex-direction: column; gap: 12px; max-width: 100%; position: relative; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.card-reload-btn { background: transparent; border: 1px solid var(--ash-border); color: var(--text-muted); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; transition: 0.2s; }
+.card-reload-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
+.card-content { display: flex; justify-content: center; align-items: center; min-height: auto; max-height: 500px; overflow-y: auto; }
+.card-static { width: 100%; display: flex; justify-content: center; }
+.card-static img { max-width: 100%; height: auto; }
+.card-iframe { width: 100%; height: 300px; border: none; border-radius: 8px; }
+@media (max-width: 600px) {
+  .card-iframe { height: 250px; }
+}
+.card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin: 0; word-break: break-word; }
+.card-desc { font-size: 0.9rem; color: var(--text-muted); margin: 0; line-height: 1.4; word-break: break-word; }
+
+/* --- TOOL EXECUTION --- */
+.tool-exec { background: rgba(88, 101, 242, 0.1); border: 1px solid var(--ash-border); border-radius: 10px; padding: 12px; margin: 15px 0; }
+.tool-exec-header { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 6px; transition: 0.2s; }
+.tool-exec-header:hover { background: rgba(88, 101, 242, 0.2); }
+.tool-exec-icon { color: #4ade80; font-weight: bold; display: flex; align-items: center; }
+.tool-exec-info { flex: 1; }
+.tool-exec-name { font-weight: 600; color: #fff; font-size: 0.95rem; }
+.tool-exec-args { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; font-family: 'Menlo', monospace; word-break: break-all; }
+.tool-exec-output { display: none; background: rgba(0,0,0,0.3); border-top: 1px solid var(--ash-border); margin-top: 8px; padding: 12px; border-radius: 0 0 6px 6px; max-height: 300px; overflow-y: auto; font-size: 0.85rem; color: var(--text-muted); font-family: 'Menlo', monospace; white-space: pre-wrap; word-break: break-word; }
+.tool-exec-output.show { display: block; }
+.tool-exec-toggle { color: var(--text-muted); transition: 0.2s; display: flex; align-items: center; }
+.tool-exec.expanded .tool-exec-toggle { transform: rotate(180deg); }
+
+</style>
+
+</head>
+<body>
+
+  <div class="header-actions">
+    <button class="updates-trigger" id="updates-btn"><i data-lucide="sparkles" style="width:16px;"></i><span>Updates</span><span class="update-dot"></span></button>
+    <button class="clear-chat-btn" id="clear-btn"><i data-lucide="trash-2" style="width:18px;"></i></button>
+  </div>
+
+  <div id="chat-window"></div>
+
+  <div class="input-container">
+    <!-- switched to textarea for multiline support -->
+    <textarea id="user-input" rows="1" placeholder="Ask Vordex anything..." autocomplete="off"></textarea>
+    <button id="upload-btn">+</button>
+    <button id="send-btn"><i data-lucide="arrow-up" style="width:20px;"></i></button>
+    <input type="file" id="file-input" accept="image/*" style="display:none" />
+  </div>
+
+  <div id="panel-overlay" class="panel-overlay"></div>
+  <div id="updates-sidebar" class="updates-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:40px;">
+      <h2 style="font-size:1.8rem;">What's New</h2>
+      <button id="close-updates" style="background:none; border:none; color:#fff; cursor:pointer;"><i data-lucide="x"></i></button>
+    </div>
+    <div style="background:var(--ash-surface); padding:24px; border-radius:20px; border:1px solid var(--ash-border);">
+      <h3 style="color:var(--accent-primary); margin-bottom:12px;">Vordex 4.00</h3>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.6;">
+        • Image Generation support
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // --- APP STATE ---
+    let chatHistory = [];
+    const MODEL_NAME = "Vordex 4.00";
+    const chatWindow = document.getElementById('chat-window');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileInput = document.getElementById('file-input');
+    const inputContainer = document.querySelector('.input-container');
+
+    // --- UTILS ---
+    const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
+    // Curl tool - fetch URL and return truncated response
+    async function executeCurl(url) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Vordex AI (+https://vordex.ai)'
+          }
+        });
+        
+        let data;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          data = JSON.stringify(await response.json(), null, 2);
+        } else {
+          data = await response.text();
+        }
+        
+        // Truncate to 3000 words
+        const words = data.split(/\s+/);
+        const maxWords = 3000;
+        if (words.length > maxWords) {
+          data = words.slice(0, maxWords).join(' ') + '\n\n[... truncated to 3000 words ...]';
+        }
+        
+        return {
+          success: true,
+          status: response.status,
+          data: data
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    }
+    
+    const togglePanel = () => {
+      document.getElementById('updates-sidebar').classList.toggle('open');
+      document.getElementById('panel-overlay').classList.toggle('show');
+      const dot = document.querySelector('.update-dot');
+      if (dot) dot.style.display = 'none';
+      localStorage.setItem('vordex-updates-seen', 'true');
+    };
+
+    document.getElementById('updates-btn').onclick = togglePanel;
+    document.getElementById('close-updates').onclick = togglePanel;
+    document.getElementById('panel-overlay').onclick = togglePanel;
+    if(!localStorage.getItem('vordex-updates-seen')) setTimeout(togglePanel, 1500);
+    else document.querySelector('.update-dot').style.display = 'none';
+
+    // Upload button
+    uploadBtn.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    // Drag and drop
+    inputContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      inputContainer.style.background = 'rgba(100,100,100,0.2)';
+    });
+    inputContainer.addEventListener('dragleave', () => {
+      inputContainer.style.background = '';
+    });
+    inputContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      inputContainer.style.background = '';
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleFile(files[0]);
+    });
+
+    // --- MARKDOWN ---
+   function parseMarkdown(text) {
+  if (!text) return '';
+  let html = text;
+
+  // 1. Protect Code Blocks first (so markdown inside them isn't parsed)
+  const codeBlocks = [];
+  html = html.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push({ language: (lang || 'text').trim(), code: code });
+    return `%%%CODE_BLOCK_${idx}%%%`;
+  });
+
+  // Image placeholders for later restoration
+  const imgPlaceholders = [];
+
+  // 2. Tool execution markers - extract before HTML escaping
+  const toolExecs = [];
+  html = html.replace(/\[ToolExec:(.+?)::(.+?)::(.+?)%%%ENDTOOL%/gs, (_, name, args, output) => {
+    const idx = toolExecs.length;
+    toolExecs.push({ name: name.trim(), args: args.trim(), output: output.trim(), isPending: false });
+    return `%%%TOOL_EXEC_${idx}%%%`;
+  });
+
+  // 3. Cards logic - use %%%ENDCARD%%% marker to avoid conflicts with HTML/CSS/JS
+  const cards = [];
+  html = html.replace(/\[Card:(.+?)::(.+?)::(.+?)%%%ENDCARD%%%/gs, (_, title, desc, content) => {
+    const idx = cards.length;
+    cards.push({ title: title.trim(), desc: desc.trim(), content: content.trim() });
+    return `%%%CARD_${idx}%%%`;
+  });
+
+  // 3. Escape HTML to prevent XSS (do this before adding our own HTML tags)
+  html = escapeHtml(html);
+
+  // 4. Blockquotes - Handle as a single level block
+  // This regex finds lines starting with > and wraps the whole group in one <blockquote>
+  html = html.replace(/^(?:&gt;[^\n]*\n?)+/gm, (match) => {
+    // Remove the leading &gt; and the optional space following it from each line
+    const content = match.replace(/^&gt;\s?/gm, '');
+    return `<blockquote>${content}</blockquote>`;
+  });
+
+  // 5. Pollinations images - use placeholder before unescaping
+  html = html.replace(/\[Image: (.*?)\]/g, (_, p) => {
+    const idx = imgPlaceholders.length;
+    imgPlaceholders.push(p.trim());
+    return `%%%IMAGE_${idx}%%%`;
+  });
+
+  // 6. Tables
+  html = html.replace(/((?:^|\n)\|.+(?:\n\|.+)+)/g, (match) => {
+    const rows = match.trim().split('\n').map(r => 
+      r.split('|').map(c => c.trim()).filter(Boolean)
+    );
+    if (rows.length < 2) return match;
+    let t = '<table><thead><tr>' + rows[0].map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i].every(c => /^[-:| ]+$/.test(c))) continue;
+      t += '<tr>' + rows[i].map(c => `<td>${c}</td>`).join('') + '</tr>';
+    }
+    return t + '</tbody></table>';
+  });
+
+  // 7. Headers & Formatting
+  html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/~~(.*?)~~/g, '<del>$1</del>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 8. Lists
+  html = html.replace(/^\s*[\*\+\-]\s+(.*)/gim, '<ul><li>$1</li></ul>');
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+  // 9. Newlines (Apply only outside of specific tags to avoid double spacing)
+  html = html.replace(/\n/g, '<br>');
+
+  // 10. Restore code blocks
+  codeBlocks.forEach((cb, i) => {
+    const lang = cb.language.toLowerCase();
+    // Escape the raw code for safe display in HTML attribute
+    const rawCodeEscaped = cb.code.replace(/\\/g, '\\\\').replace(/"/g, '&quot;');
+    const codeEscaped = escapeHtml(cb.code);
+    const codeHtml = `<div class="code-block-wrapper"><div class="code-header"><span class="code-lang">${cb.language}</span><div class="code-actions"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><button class="preview-code-btn" onclick="previewCode(this, '${lang}')">Preview</button></div></div><pre><code class="language-${lang}" data-raw="${rawCodeEscaped}">${codeEscaped}</code></pre></div>`;
+    html = html.replace(`%%%CODE_BLOCK_${i}%%%`, codeHtml);
+  });
+
+  // 11. Restore tool executions
+  toolExecs.forEach((tool, i) => {
+    let outputDisplay = tool.output || 'Loading...';
+    let isLoading = tool.name.toLowerCase() === 'curl' && tool.output === '';
+    
+    const toolHtml = `<div class="tool-exec ${isLoading ? 'expanded' : ''}" data-tool-idx="${i}" onclick="toggleToolOutput(this)">
+      <div class="tool-exec-header">
+        <div class="tool-exec-icon">${isLoading ? '⏳' : '✓'}</div>
+        <div class="tool-exec-info">
+          <div class="tool-exec-name">Tool executed: ${escapeHtml(tool.name)}</div>
+          <div class="tool-exec-args">${escapeHtml(tool.args)}</div>
+        </div>
+        <div class="tool-exec-toggle"><i data-lucide="chevron-down" style="width:16px;"></i></div>
+      </div>
+      <div class="tool-exec-output ${isLoading ? 'show' : ''}">${escapeHtml(outputDisplay)}</div>
+    </div>`;
+    html = html.replace(`%%%TOOL_EXEC_${i}%%%`, toolHtml);
+  });
+  
+  // If there are curl tools with empty output, execute them after a short delay
+  setTimeout(() => {
+    toolExecs.forEach((tool, i) => {
+      if (tool.name.toLowerCase() === 'curl' && tool.output === '') {
+        const toolEl = document.querySelector(`[data-tool-idx="${i}"]`);
+        if (toolEl) {
+          const outputEl = toolEl.querySelector('.tool-exec-output');
+          console.log(`[CURL] Executing: ${tool.args}`);
+          
+          executeCurl(tool.args).then(result => {
+            console.log(`[CURL] Result:`, result);
+            if (result.success) {
+              outputEl.textContent = result.data;
+              tool.output = result.data;
+              // Update icon to checkmark
+              toolEl.querySelector('.tool-exec-icon').textContent = '✓';
+            } else {
+              outputEl.textContent = `Error: ${result.error}`;
+              // Update icon to error
+              toolEl.querySelector('.tool-exec-icon').textContent = '✕';
+            }
+          }).catch(err => {
+            console.error(`[CURL] Fetch error:`, err);
+            outputEl.textContent = `Error: ${err.message}`;
+            toolEl.querySelector('.tool-exec-icon').textContent = '✕';
+          });
+        }
+      }
+    });
+  }, 50);
+
+  // 12. Restore cards
+  cards.forEach((card, i) => {
+    const cardContent = card.content; // Keep raw HTML/SVG, don't escape
+    let contentHtml = cardContent.includes('<script') 
+      ? `<iframe class="card-iframe" srcdoc="${cardContent.replace(/"/g, '&quot;')}"></iframe>`
+      : `<div class="card-static">${cardContent}</div>`;
+    
+    const cardHtml = `<div class="card" data-card-idx="${i}">
+      <div class="card-header">
+        <div style="flex: 1;"></div>
+        <button class="card-reload-btn" onclick="reloadCard(this)" title="Reload card"><i data-lucide="rotate-cw" style="width:14px;"></i><span>Reload</span></button>
+      </div>
+      <div class="card-content">${contentHtml}</div>
+      <h4 class="card-title">${escapeHtml(card.title)}</h4>
+      <p class="card-desc">${escapeHtml(card.desc)}</p>
+    </div>`;
+    html = html.replace(`%%%CARD_${i}%%%`, cardHtml);
+  });
+
+  // 13. Restore images - now with proper sizing
+  imgPlaceholders.forEach((prompt, i) => {
+    const imgHtml = `<div style="margin:15px 0; display:flex; justify-content:center; align-items:center;">
+            <img src="https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}" 
+                 alt="${escapeHtml(prompt)}"
+                 style="max-width:100%; max-height:500px; height:auto; border-radius:14px; border:1px solid var(--ash-border); cursor:pointer; object-fit:contain;" 
+                 onclick="window.open(this.src)">
+          </div>`;
+    html = html.replace(`%%%IMAGE_${i}%%%`, imgHtml);
+  });
+
+  return html;
+}
+
+    function copyCode(btn) {
+      const codeEl = btn.closest('.code-block-wrapper').querySelector('code');
+      let code = codeEl.getAttribute('data-raw');
+      if (code) {
+        // Unescape the code from HTML entities
+        const temp = document.createElement('textarea');
+        temp.innerHTML = code;
+        code = temp.value;
+      } else {
+        code = codeEl.textContent;
+      }
+      navigator.clipboard.writeText(code);
+      btn.innerText = 'Copied!';
+      setTimeout(() => btn.innerText = 'Copy', 2000);
+    }
+
+    function previewCode(btn, lang) {
+      const codeEl = btn.closest('.code-block-wrapper').querySelector('code');
+      let code = codeEl.getAttribute('data-raw');
+      if (code) {
+        // Unescape the code from HTML entities
+        const temp = document.createElement('textarea');
+        temp.innerHTML = code;
+        code = temp.value;
+      } else {
+        code = codeEl.textContent;
+      }
+      const newWindow = window.open();
+      if (lang.toLowerCase() === 'html') {
+        newWindow.document.write(code);
+      } else {
+        newWindow.document.write('<pre style="white-space: pre-wrap; font-family: monospace;">' + escapeHtml(code) + '</pre>');
+      }
+      newWindow.document.close();
+    }
+
+    function reloadCard(btn) {
+      const card = btn.closest('.card');
+      const iframe = card.querySelector('.card-iframe');
+      if (iframe) {
+        // Reload iframe by resetting src
+        const srcdoc = iframe.getAttribute('srcdoc');
+        iframe.src = '';
+        setTimeout(() => {
+          iframe.srcdoc = srcdoc;
+        }, 10);
+        btn.innerText = '✓ Reloaded';
+        setTimeout(() => {
+          btn.innerHTML = '<i data-lucide="rotate-cw" style="width:14px;"></i><span>Reload</span>';
+          lucide.createIcons();
+        }, 1500);
+      }
+    }
+
+    function toggleToolOutput(elem) {
+      elem.classList.toggle('expanded');
+      elem.querySelector('.tool-exec-output').classList.toggle('show');
+    }
+
+    // Handle file upload
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result;
+        const imgContent = [{ type: 'image_url', image_url: { url: base64 } }];
+        chatHistory.push({ role: 'user', content: imgContent });
+        const wrapper = createMessageElement('user', imgContent);
+        chatWindow.appendChild(wrapper);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        triggerBotResponse();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // --- MESSAGE CREATION ---
+    function createMessageElement(role, content) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `message-wrapper ${role}`;
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      
+      if (role === 'bot') {
+        wrapper.setAttribute('data-raw', typeof content === 'string' ? content : JSON.stringify(content));
+        if (typeof content === 'string') {
+          contentDiv.innerHTML = `<div class="markdown">${parseMarkdown(content)}</div>`;
+        } else {
+          // Handle array content for bot (unlikely, but)
+          content.forEach(item => {
+            if (item.type === 'text') {
+              contentDiv.innerHTML += parseMarkdown(item.text);
+            }
+          });
+        }
+      } else {
+        // user
+        if (Array.isArray(content)) {
+          content.forEach(item => {
+            if (item.type === 'text') {
+              const textNode = document.createTextNode(item.text);
+              contentDiv.appendChild(textNode);
+            } else if (item.type === 'image_url') {
+              const img = document.createElement('img');
+              img.src = item.image_url.url;
+              img.style.maxWidth = '200px';
+              img.style.borderRadius = '8px';
+              img.style.margin = '5px 0';
+              contentDiv.appendChild(img);
+            }
+          });
+        } else {
+          contentDiv.textContent = content;
+        }
+      }
+
+      const footer = document.createElement('div');
+      footer.className = 'msg-footer';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'action-btn';
+      copyBtn.innerHTML = `<i data-lucide="copy" style="width:14px;"></i>`;
+      copyBtn.onclick = () => {
+        const t = role === 'bot' ? wrapper.getAttribute('data-raw') : (typeof content === 'string' ? content : JSON.stringify(content));
+        navigator.clipboard.writeText(t);
+      };
+      footer.appendChild(copyBtn);
+
+      if (role === 'user') {
+        // --- EDIT BUTTON ---
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn';
+        editBtn.innerHTML = `<i data-lucide="edit-2" style="width:14px;"></i>`;
+        editBtn.onclick = () => {
+          if (Array.isArray(content)) return; // No edit for images
+          enterEditMode(wrapper, contentDiv);
+        };
+        footer.appendChild(editBtn);
+      } else {
+        // --- REGENERATE BUTTON ---
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'action-btn';
+        regenBtn.innerHTML = `<i data-lucide="refresh-cw" style="width:14px;"></i>`;
+        regenBtn.onclick = () => {
+          wrapper.remove();
+          chatHistory.pop(); 
+          triggerBotResponse();
+        };
+        footer.appendChild(regenBtn);
+
+        const detailsBtn = document.createElement('button');
+        detailsBtn.className = 'action-btn';
+        detailsBtn.innerHTML = `<i data-lucide="info" style="width:14px;"></i>`;
+        detailsBtn.onclick = () => {
+          const p = wrapper.querySelector('.details-panel');
+          if(p) p.classList.toggle('show');
+        };
+        footer.appendChild(detailsBtn);
+
+        const panel = document.createElement('div');
+        panel.className = 'details-panel';
+        panel.innerHTML = `<span>Model:</span><span>${MODEL_NAME}</span><span>Speed:</span><span id="meta-speed">Calculating...</span>`;
+        wrapper.appendChild(contentDiv);
+        wrapper.appendChild(footer);
+        wrapper.appendChild(panel);
+        return wrapper;
+      }
+      
+      wrapper.appendChild(contentDiv);
+      wrapper.appendChild(footer);
+      return wrapper;
+    }
+
+    // --- RESTORED EDIT MODE LOGIC ---
+    function enterEditMode(wrapper, contentDiv) {
+      const originalText = contentDiv.textContent;
+      contentDiv.innerHTML = ''; // Clear text
+      
+      const container = document.createElement('div');
+      container.className = 'edit-container';
+      
+      const input = document.createElement('input');
+      input.className = 'edit-input';
+      input.value = originalText;
+      
+      const actions = document.createElement('div');
+      actions.className = 'edit-actions';
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'save-btn';
+      saveBtn.innerText = 'Save & Send';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-btn';
+      cancelBtn.innerText = 'Cancel';
+
+      // Save Action
+      saveBtn.onclick = () => {
+        const newText = input.value.trim();
+        if (!newText) return;
+
+        // Calculate index
+        const allUserMsgs = Array.from(document.querySelectorAll('.message-wrapper.user'));
+        const index = allUserMsgs.indexOf(wrapper);
+        
+        // Slice history to that point
+        // Note: chatHistory stores {role, content}. User msgs are at even indices if strict turn-taking
+        // Safer way: rebuild history or slice based on count. 
+        // Simple Slice: We keep messages up to this user message index * 2 (user+bot pairs)
+        chatHistory = chatHistory.slice(0, index * 2);
+        
+        // Remove all subsequent DOM elements
+        let next = wrapper.nextElementSibling;
+        while(next) {
+            const toRemove = next;
+            next = next.nextElementSibling;
+            toRemove.remove();
+        }
+
+        // Update this message
+        chatHistory.push({role: 'user', content: newText});
+        contentDiv.textContent = newText; // remove edit UI
+        
+        // Trigger bot
+        triggerBotResponse();
+      };
+
+      // Cancel Action
+      cancelBtn.onclick = () => {
+        contentDiv.textContent = originalText;
+      };
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(saveBtn);
+      container.appendChild(input);
+      container.appendChild(actions);
+      contentDiv.appendChild(container);
+      input.focus();
+    }
+
+    // --- CORE LOGIC (BULLETPROOF) ---
+    async function triggerBotResponse() {
+  userInput.disabled = true;
+  sendBtn.disabled = true;
+
+  const botWrapper = createMessageElement('bot', '');
+  chatWindow.appendChild(botWrapper);
+  const mdContainer = botWrapper.querySelector('.markdown');
+
+  const cursor = document.createElement('span');
+  cursor.className = 'typing-cursor'; 
+  cursor.textContent = '●';
+  mdContainer.appendChild(cursor);
+
+  let fullResponseText = "";
+  const startTime = performance.now();
+  let tokenCounter = 0;
+
+  // Helper: Check if response is ONLY a tool call (no other content)
+  function isOnlyToolCall(text) {
+    const trimmed = text.trim();
+    const hasToolCall = /\[ToolExec:(.+?)::(.+?)::%%%ENDTOOL%/s.test(trimmed);
+    // Remove tool call and see if anything meaningful remains
+    const withoutTool = trimmed.replace(/\[ToolExec:(.+?)::(.+?)::%%%ENDTOOL%/s, '').trim();
+    return hasToolCall && withoutTool.length < 50; // Allow small text like "Let me fetch..."
+  }
+
+  // Helper: Extract tool info from response
+  function extractToolCall(text) {
+    const match = text.match(/\[ToolExec:(.+?)::(.+?)::%%%ENDTOOL%/s);
+    if (!match) return null;
+    return { name: match[1].trim(), args: match[2].trim() };
+  }
+
+  try {
+    const apiMessages = chatHistory.map(m => ({
+      role: m.role === 'bot' ? 'assistant' : 'user',
+      content: m.content
+    }));
+
+    const now = new Date().toISOString();
+    const ip = await fetch("https://ipinfo.io/ip").then(res => res.text());
+
+    apiMessages.unshift({ 
+      role: "system", 
+      content: `You are Vordex AI 4. Use MD formatting like tables, blockquotes. To generate images on UI use the format [Image: description], use only if user asks, you will not see the image. You can use cards when Summarizing a single item. To create UI cards with SVG or HTML content, use the format [Card:My Title::Brief description::<h1>Content here</h1>%%%ENDCARD%%%. Content can be SVG markup or HTML (including scripts for dynamic elements like clocks - scripts will run in a sandboxed iframe), do not use code blocks in cards, consider mobile friendly cards, and non-selectable text (better experience).
+
+=== CRITICAL: CURL TOOL REQUIREMENT ===
+WHENEVER user asks to fetch data from a URL, API, website, or link:
+
+Output EXACTLY this format (copy-paste pattern):
+[ToolExec:curl::FULL_URL_HERE::%%%ENDTOOL%
+
+STRICT RULES:
+- Start with [ToolExec:
+- Then curl (the tool name)
+- Then TWO colons :: (not one colon!)
+- Then the complete URL
+- Then TWO colons :: (not one colon!)
+- Then %%%ENDTOOL% (nothing after this)
+
+CORRECT EXAMPLE:
+[ToolExec:curl::https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060::%%%ENDTOOL%
+
+WRONG EXAMPLES (do NOT do these):
+❌ [ToolExec:curl:URL::%%%ENDTOOL%  (only one colon after curl)
+❌ [ToolExec:curl::URL%%%ENDTOOL%   (missing second ::)
+❌ [ToolExec:curl::URL::%%%ENDTOOL%] (extra ] at end)
+
+Output ONLY the tool call. Nothing else. Just that one line.
+
+You can also browse the internet (simple search) using duckduckgo:
+[ToolExec:curl::https://api.duckduckgo.com/?q=QUERY&format=json::%%%ENDTOOL%
+
+Additional information (don't share without explicit request):
+Live data (updates every request):
+- Date and time: ${now}
+- user IP: ${ip}`
+    });
+
+    const response = await fetch("https://raspy-frost-9caf.mmmmmm505090.workers.dev", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: apiMessages })
+    });
+
+    if (!response.ok) throw new Error("API Error: " + response.status);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let streamBuffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      streamBuffer += decoder.decode(value, { stream: true });
+      const lines = streamBuffer.split("\n\n");
+      streamBuffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.replace("data: ", "").trim();
+
+          if (data === "[DONE]" || data === "DONE" || data === "") {
+            continue;
+          }
+
+          try {
+            const json = JSON.parse(data);
+            fullResponseText += json; // accumulate raw text
+            tokenCounter++;
+          } catch (e) {
+            console.error("JSON parse error:", e, "on data:", data);
+          }
+        }
+      }
+
+      // Show raw text while streaming (fast & simple)
+      mdContainer.textContent = fullResponseText;
+      if (!mdContainer.contains(cursor)) mdContainer.appendChild(cursor);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // === FINAL PARSE ONLY ONCE ===
+    mdContainer.innerHTML = parseMarkdown(fullResponseText);
+    mdContainer.appendChild(cursor); // keep cursor until cleanup
+
+    // Check if response is ONLY a tool call (tool should execute and then we get real analysis)
+    if (isOnlyToolCall(fullResponseText)) {
+      const toolInfo = extractToolCall(fullResponseText);
+      if (toolInfo && toolInfo.name.toLowerCase() === 'curl') {
+        // Execute the tool immediately
+        const statusDiv = document.createElement('div');
+        statusDiv.style.color = '#888';
+        statusDiv.style.fontStyle = 'italic';
+        statusDiv.textContent = 'Executing curl tool...';
+        mdContainer.appendChild(statusDiv);
+        
+        const toolResult = await executeCurl(toolInfo.args);
+        statusDiv.remove();
+        
+        if (toolResult.success) {
+          // Add tool call as a separate message to history
+          chatHistory.push({ role: 'bot', content: fullResponseText });
+          
+          // Create a separate UI message for tool execution + result
+          const toolResultContent = `${fullResponseText}\n\nData received: ${toolResult.data.split('\n')[0]}... (${toolResult.data.length} chars)`;
+          chatHistory.push({ role: 'assistant', content: toolResultContent });
+          
+          // Add analysis request as user message
+          const analysisRequest = `I executed the curl tool and got data. The response is large, so I'm only showing you the summary. Now please analyze what was fetched and provide insights. Don't ask me to fetch again - work with the data I gave you.`;
+          chatHistory.push({ role: 'user', content: analysisRequest });
+          
+          // Call API ONLY with the truncated data summary, not the full data
+          const followUpMessages = [
+            { role: 'system', content: 'You are an AI assistant analyzing data from an API call. The user has fetched real data and wants you to analyze it. Be concise and direct.' },
+            { role: 'user', content: `Data summary from curl:\n\n${toolResult.data.substring(0, 2000)}\n\n(Note: Response has been truncated for token limits)\n\nPlease analyze this data and provide insights.` }
+          ];
+          
+          // Call API again for analysis
+          const followUpResponse = await fetch("https://replace-with-your-own-API", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: followUpMessages })
+          });
+          
+          if (followUpResponse.ok) {
+            let analysisText = "";
+            const reader = followUpResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let streamBuffer = "";
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              streamBuffer += decoder.decode(value, { stream: true });
+              const lines = streamBuffer.split("\n\n");
+              streamBuffer = lines.pop();
+              
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const data = line.replace("data: ", "").trim();
+                  if (data === "[DONE]" || data === "DONE" || data === "") continue;
+                  try {
+                    const json = JSON.parse(data);
+                    analysisText += json;
+                    tokenCounter++;
+                  } catch (e) {
+                    console.error("JSON parse error:", e, "on data:", data);
+                  }
+                }
+              }
+              
+              // Show analysis as it streams
+              mdContainer.innerHTML = parseMarkdown(analysisText);
+              if (!mdContainer.contains(cursor)) mdContainer.appendChild(cursor);
+              chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+            
+            // Final render
+            mdContainer.innerHTML = parseMarkdown(analysisText);
+            mdContainer.appendChild(cursor);
+            
+            // Add analysis to history
+            chatHistory.push({ role: 'bot', content: analysisText });
+          }
+        } else {
+          mdContainer.innerHTML = `<div style="color: #ff5555;">Error fetching data: ${toolResult.error}</div>`;
+        }
+      }
+    }
+
+    chatHistory.push({ role: 'bot', content: fullResponseText });
+
+    const duration = (performance.now() - startTime) / 1000;
+    const speedEl = botWrapper.querySelector('#meta-speed');
+    if (speedEl) speedEl.textContent = `${(tokenCounter / Math.max(duration, 0.1)).toFixed(1)} T/s (${duration.toFixed(1)}s)`;
+
+  } catch (err) {
+    mdContainer.innerHTML += `<div style="color:#ff5555; margin-top:10px;">[Error: ${err.message}]</div>`;
+  } finally {
+    cursor.remove();
+    userInput.disabled = false;
+    sendBtn.disabled = false;
+    userInput.focus();
+    lucide.createIcons();
+
+    if (window.Prism) {
+      Prism.highlightAllUnder(mdContainer);
+      setTimeout(() => Prism.highlightAllUnder(mdContainer), 100);
+    }
+  }
+}
+
+    async function handleSend() {
+      const text = userInput.value.trim();
+      if (!text || userInput.disabled) return;
+      chatHistory.push({ role: 'user', content: text });
+      chatWindow.appendChild(createMessageElement('user', text));
+      userInput.value = '';
+      // reset textarea height after clearing
+      userInput.style.height = 'auto';
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      await triggerBotResponse();
+    }
+
+    // --- AUTO-GROW & ENTER BEHAVIOR ---
+    // Using textarea (userInput). Enter = send, Shift+Enter = newline.
+    function autoGrow(el) {
+      el.style.height = 'auto';
+      // small safety: ensure min height corresponds to rows=1 line height
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    // Listen for input to auto-grow
+    userInput.addEventListener('input', () => autoGrow(userInput));
+
+    // Keydown: Enter sends (unless Shift is pressed)
+    userInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        if (e.shiftKey) {
+          // allow default newline insertion
+          return;
+        } else {
+          e.preventDefault(); // prevent newline
+          await handleSend();
+          autoGrow(userInput); // resize after send
+        }
+      }
+    });
+
+    // wire send button
+    sendBtn.onclick = handleSend;
+
+    clearBtn.onclick = () => {
+      if (confirm("Clear all messages?")) {
+        chatHistory = [];
+        chatWindow.innerHTML = '';
+        userInput.focus();
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      // ensure initial auto-grow fit
+      autoGrow(userInput);
+      userInput.focus();
+    });
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-markup.min.js"></script>
+</body>
+
+</html>
